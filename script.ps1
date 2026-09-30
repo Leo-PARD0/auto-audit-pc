@@ -135,32 +135,33 @@ function Remove-WindowsCredentials {
 
     $removed = @()
 
-    # Garante o uso do executavel do System32 mesmo sem admin/PATH
+    # Garante o uso do executavel do System32
     $cmdkeyPath = "$env:SystemRoot\System32\cmdkey.exe"
-    if (-not (Test-Path $cmdkeyPath)) {
-        $cmdkeyPath = "cmdkey.exe"
+    if (-not (Test-Path $cmdkeyPath)) {$cmdkeyPath = "cmdkey.exe"
     }
 
-    # Lista todas as credenciais gravadas
-    $cmdkeyOutput = & $cmdkeyPath /list 2>&1 | Out-String
+    # Executa o cmdkey e converte a saida para um array de linhas limpas
+    $cmdkeyOutput = &$cmdkeyPath /list 2>&1 | Out-String
+    $lines =$cmdkeyOutput -split "`r?`n"
 
-    foreach ($target in $Targets) {
+    foreach ($line in$lines) {
+        # Extrai qualquer linha que contenha um indicador de alvo/target
+        if ($line -match "(?:Target|Alvo):\s*(.+)" -or $line -match "Target=\s*(.+)") {
+            $credentialName =$Matches[1].Trim()
 
-        # Procura credenciais cujo Target contenha o alvo informado
-        $matches = $cmdkeyOutput |
-            Select-String -Pattern "Target:\s*(.*$target.*)"
-
-        foreach ($match in $matches) {
-
-            $credentialName = $match.Matches.Groups[1].Value.Trim()
-
-            if ($credentialName) {
-
-                & $cmdkeyPath /delete:$credentialName | Out-Null
-
-                Write-Host "  [OK] Credencial removida: $credentialName" -ForegroundColor Green
-
-                $removed += $credentialName
+            # Verifica se o nome da credencial bate com algum dos nossos alvos
+            foreach ($target in$Targets) {
+                if ($credentialName -like "*$target*") {
+                    
+                    # Evita tentar apagar a mesma credencial duas vezes no mesmo loop
+                    if ($removed -notcontains$credentialName) {
+                        try {
+                            & $cmdkeyPath /delete:$credentialName | Out-Null
+                            Write-Host "  [OK] Credencial removida: $credentialName" -ForegroundColor Green
+                            $removed +=$credentialName
+                        } catch {}
+                    }
+                }
             }
         }
     }
@@ -260,9 +261,10 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 $credentialTargets = @(
-    "git:https://github.com",
-    "github.com",
-    "vscode"
+    "git:",
+    "github",
+    "vscode",
+    "MicrosoftAccount"
 )
 
 Write-Host "O reset ira remover apenas os dados de usuario e credenciais:" -ForegroundColor Yellow
